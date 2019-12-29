@@ -1,0 +1,185 @@
+package com.example.recyclerviewsqlite;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+import android.Manifest;
+import android.content.ContentResolver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.MediaStore;
+import android.view.View;
+import android.webkit.MimeTypeMap;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import org.w3c.dom.Text;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+
+public class CadastroProdutoActivity extends AppCompatActivity {
+    private EditText nome;
+    private ProdutoDAO dao;
+    private ImageView fotoGaleria;
+    private Button btCamera, btGaleria;
+    private TextView uriTeste;
+    private String imageUri;
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_cadastro_produto);
+
+        nome = findViewById(R.id.editNome);
+        fotoGaleria = findViewById(R.id.fotoGaleria);
+        btCamera = findViewById(R.id.btCamera);
+        btGaleria = findViewById(R.id.btGaleria);
+        fotoGaleria = findViewById(R.id.fotoGaleria);
+        uriTeste = findViewById(R.id.uriTeste);
+
+
+        dao = new ProdutoDAO(this);
+        fotos();
+
+    }
+
+    public void salvarProduto(View view) {
+        Produto p = new Produto();
+        p.setNome(nome.getText().toString());
+        p.setUri(imageUri);
+        long id = dao.inserirProduto(p);
+        Toast.makeText(this, "Produto inserido com id:" + id, Toast.LENGTH_SHORT).show();
+    }
+
+    public void fotos() {
+        btCamera.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (ActivityCompat.checkSelfPermission(CadastroProdutoActivity.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(CadastroProdutoActivity.this, new String[]{Manifest.permission.CAMERA}, 0);
+                } else {
+                    tirarFoto();
+                }
+            }
+        });
+        btGaleria.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (ActivityCompat.checkSelfPermission(CadastroProdutoActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(CadastroProdutoActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 0);
+                } else {
+                    abrirGaleria();
+                }
+            }
+        });
+
+    }
+
+    public void tirarFoto() {
+        Intent i = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        startActivityForResult(i, 1);
+    }
+
+    public void abrirGaleria() {
+        Intent i = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        startActivityForResult(i, 2);
+
+    }
+
+    public static Bitmap rotateBitmap(Bitmap bitmap, int degrees) {
+        Matrix matrix = new Matrix();
+        matrix.postRotate(degrees);
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        if (requestCode == 1 && resultCode == RESULT_OK) {
+            Bundle extras = data.getExtras();
+            Bitmap imagem = (Bitmap) extras.get("data");
+            Bitmap reduzido = Bitmap.createScaledBitmap(imagem, 200, 200, true);
+            fotoGaleria.setImageBitmap(reduzido);
+            // Chame este método pra obter a URI da imagem
+            Uri uri = getImageUri(getApplicationContext(), imagem);
+            // Em seguida chame este método para obter o caminho do arquivo
+            File file = new File(getRealPathFromURI(uri));
+            imageUri = file.getPath();
+        }
+
+        if (requestCode == 2 && resultCode == RESULT_OK && null != data) {
+            Uri selectedImage = data.getData();
+            String[] filePathColumn = {MediaStore.Images.Media.DATA};
+            Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
+            cursor.moveToFirst();
+            int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+            String picturePath = cursor.getString(columnIndex);
+            cursor.close();
+            Bitmap myBitmap = BitmapFactory.decodeFile(picturePath);
+
+            //Metodo que trás a imagem na rotação certa
+
+            ExifInterface exif = null;
+            try {
+                File pictureFile = new File(picturePath);
+                exif = new ExifInterface(pictureFile.getAbsolutePath());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            int orientation = ExifInterface.ORIENTATION_NORMAL;
+            if (exif != null)
+                orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+
+            switch (orientation) {
+                case ExifInterface.ORIENTATION_ROTATE_90:
+                    myBitmap = rotateBitmap(myBitmap, 90);
+                    break;
+                case ExifInterface.ORIENTATION_ROTATE_180:
+                    myBitmap = rotateBitmap(myBitmap, 180);
+                    break;
+
+                case ExifInterface.ORIENTATION_ROTATE_270:
+                    myBitmap = rotateBitmap(myBitmap, 270);
+                    break;
+            }
+            // Muda a resolução do bitmap pra 200x200
+            Bitmap reduzido = Bitmap.createScaledBitmap(myBitmap, 200, 200, true);
+            fotoGaleria.setImageBitmap(reduzido);
+            Uri uri = getImageUri(getApplicationContext(), reduzido);
+            // Em seguida chame este método para obter o caminho do arquivo
+            File file = new File(getRealPathFromURI(uri));
+            imageUri = file.getPath();
+        }
+
+
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    public Uri getImageUri(Context inContext, Bitmap inImage) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
+        String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title", null);
+        return Uri.parse(path);
+    }
+
+    public String getRealPathFromURI(Uri uri) {
+        Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+        cursor.moveToFirst();
+        int idx = cursor.getColumnIndex(MediaStore.Images.ImageColumns.DATA);
+        return cursor.getString(idx);
+    }
+}
