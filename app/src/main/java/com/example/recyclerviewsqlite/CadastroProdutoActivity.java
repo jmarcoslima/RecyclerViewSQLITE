@@ -61,7 +61,12 @@ public class CadastroProdutoActivity extends AppCompatActivity {
     public void salvarProduto(View view) {
         Produto p = new Produto();
         p.setNome(nome.getText().toString());
-        p.setUri(imageUri);
+        //Evita nullPointer ao cadastrar sem imagem da galeria/camera
+        if(imageUri != null) {
+            p.setUri(imageUri);
+        } else {
+            p.setUri("0");
+        }
         long id = dao.inserirProduto(p);
         Toast.makeText(this, "Produto inserido com id:" + id, Toast.LENGTH_SHORT).show();
     }
@@ -112,8 +117,7 @@ public class CadastroProdutoActivity extends AppCompatActivity {
         if (requestCode == 1 && resultCode == RESULT_OK) {
             Bundle extras = data.getExtras();
             Bitmap imagem = (Bitmap) extras.get("data");
-            Bitmap reduzido = Bitmap.createScaledBitmap(imagem, 200, 200, true);
-            fotoGaleria.setImageBitmap(reduzido);
+            fotoGaleria.setImageBitmap(imagem);
             // Chame este método pra obter a URI da imagem
             Uri uri = getImageUri(getApplicationContext(), imagem);
             // Em seguida chame este método para obter o caminho do arquivo
@@ -156,10 +160,8 @@ public class CadastroProdutoActivity extends AppCompatActivity {
                     myBitmap = rotateBitmap(myBitmap, 270);
                     break;
             }
-            // Muda a resolução do bitmap pra 200x200
-            Bitmap reduzido = Bitmap.createScaledBitmap(myBitmap, 200, 200, true);
-            fotoGaleria.setImageBitmap(reduzido);
-            Uri uri = getImageUri(getApplicationContext(), reduzido);
+            fotoGaleria.setImageBitmap(myBitmap);
+            Uri uri = getImageUri(getApplicationContext(), myBitmap);
             // Em seguida chame este método para obter o caminho do arquivo
             File file = new File(getRealPathFromURI(uri));
             imageUri = file.getPath();
@@ -172,7 +174,8 @@ public class CadastroProdutoActivity extends AppCompatActivity {
     public Uri getImageUri(Context inContext, Bitmap inImage) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
-        String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title", null);
+        Bitmap reduzido = Bitmap.createScaledBitmap(inImage, 400, 400, true);
+        String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), reduzido, "Title", null);
         return Uri.parse(path);
     }
 
