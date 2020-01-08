@@ -52,12 +52,12 @@ public class ListaAdapter extends RecyclerView.Adapter<ListaAdapter.ListaViewHol
         private TextView textNome;
         private ImageView imageFoto;
 
-
         public ListaViewHolder(@NonNull View itemView) {
             super(itemView);
 
             textNome = itemView.findViewById(R.id.nome);
             imageFoto = itemView.findViewById(R.id.fotoproduto);
+
 
         }
 
